@@ -14,13 +14,17 @@ type FeedsListAction struct {
 	page *rod.Page
 }
 
-func NewFeedsListAction(page *rod.Page) *FeedsListAction {
+func NewFeedsListAction(page *rod.Page) (*FeedsListAction, error) {
 	pp := page.Timeout(60 * time.Second)
 
-	pp.MustNavigate("https://www.xiaohongshu.com")
-	pp.MustWaitDOMStable()
+	if err := pp.Navigate("https://www.xiaohongshu.com"); err != nil {
+		return nil, fmt.Errorf("failed to navigate to xiaohongshu: %w", err)
+	}
+	if err := pp.WaitDOMStable(time.Second, 0.5); err != nil {
+		return nil, fmt.Errorf("failed to wait for DOM stable: %w", err)
+	}
 
-	return &FeedsListAction{page: pp}
+	return &FeedsListAction{page: pp}, nil
 }
 
 // GetFeedsList 获取页面的 Feed 列表数据
@@ -29,7 +33,7 @@ func (f *FeedsListAction) GetFeedsList(ctx context.Context) ([]Feed, error) {
 
 	time.Sleep(1 * time.Second)
 
-	result := page.MustEval(`() => {
+	resultObj, err := page.Eval(`() => {
 		if (window.__INITIAL_STATE__ &&
 		    window.__INITIAL_STATE__.feed &&
 		    window.__INITIAL_STATE__.feed.feeds) {
@@ -40,7 +44,11 @@ func (f *FeedsListAction) GetFeedsList(ctx context.Context) ([]Feed, error) {
 			}
 		}
 		return "";
-	}`).String()
+	}`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to eval feeds: %w", err)
+	}
+	result := resultObj.Value.String()
 
 	if result == "" {
 		return nil, errors.ErrNoFeeds

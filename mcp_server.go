@@ -13,7 +13,12 @@ import (
 // Helper functions for annotation pointers
 func boolPtr(b bool) *bool { return &b }
 
-// MCP 工具参数结构体定义
+// EmptyArgs 用于没有参数的工具
+// 添加一个可选的占位字段，确保生成的 JSON Schema 包含 properties 字段
+type EmptyArgs struct {
+	// Placeholder 是一个占位字段，不会被使用，仅用于确保 schema 包含 properties
+	Placeholder string `json:"_placeholder,omitempty" jsonschema:"占位字段，请忽略"`
+}
 
 // PublishContentArgs 发布内容的参数
 type PublishContentArgs struct {
@@ -67,7 +72,7 @@ type FeedDetailArgs struct {
 // UserProfileArgs 获取用户主页的参数
 type UserProfileArgs struct {
 	UserID    string `json:"user_id" jsonschema:"小红书用户ID，从Feed列表获取"`
-	XsecToken string `json:"xsec_token" jsonschema:"访问令牌，从Feed列表的xsecToken字段获取"`
+	XsecToken string `json:"xsec_token,omitempty" jsonschema:"访问令牌，从Feed列表的xsecToken字段获取"`
 }
 
 // PostCommentArgs 发表评论的参数
@@ -154,6 +159,7 @@ func withPanicRecovery[T any](
 // registerTools 注册所有 MCP 工具
 func registerTools(server *mcp.Server, appServer *AppServer) {
 	// 工具 1: 检查登录状态
+	// 不设置 InputSchema，让 SDK 自动从 EmptyArgs 类型推导 schema
 	mcp.AddTool(server,
 		&mcp.Tool{
 			Name:        "check_login_status",
@@ -163,13 +169,14 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 				ReadOnlyHint: true,
 			},
 		},
-		withPanicRecovery("check_login_status", func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+		withPanicRecovery("check_login_status", func(ctx context.Context, req *mcp.CallToolRequest, _ EmptyArgs) (*mcp.CallToolResult, any, error) {
 			result := appServer.handleCheckLoginStatus(ctx)
 			return convertToMCPResult(result), nil, nil
 		}),
 	)
 
 	// 工具 2: 获取登录二维码
+	// 不设置 InputSchema，让 SDK 自动从 EmptyArgs 类型推导 schema
 	mcp.AddTool(server,
 		&mcp.Tool{
 			Name:        "get_login_qrcode",
@@ -179,13 +186,14 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 				ReadOnlyHint: true,
 			},
 		},
-		withPanicRecovery("get_login_qrcode", func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+		withPanicRecovery("get_login_qrcode", func(ctx context.Context, req *mcp.CallToolRequest, _ EmptyArgs) (*mcp.CallToolResult, any, error) {
 			result := appServer.handleGetLoginQrcode(ctx)
 			return convertToMCPResult(result), nil, nil
 		}),
 	)
 
 	// 工具 3: 删除 cookies（登录重置）
+	// 不设置 InputSchema，让 SDK 自动从 EmptyArgs 类型推导 schema
 	mcp.AddTool(server,
 		&mcp.Tool{
 			Name:        "delete_cookies",
@@ -195,7 +203,7 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 				DestructiveHint: boolPtr(true),
 			},
 		},
-		withPanicRecovery("delete_cookies", func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+		withPanicRecovery("delete_cookies", func(ctx context.Context, req *mcp.CallToolRequest, _ EmptyArgs) (*mcp.CallToolResult, any, error) {
 			result := appServer.handleDeleteCookies(ctx)
 			return convertToMCPResult(result), nil, nil
 		}),
@@ -229,6 +237,7 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 	)
 
 	// 工具 5: 获取Feed列表
+	// 不设置 InputSchema，让 SDK 自动从 EmptyArgs 类型推导 schema
 	mcp.AddTool(server,
 		&mcp.Tool{
 			Name:        "list_feeds",
@@ -238,7 +247,7 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 				ReadOnlyHint: true,
 			},
 		},
-		withPanicRecovery("list_feeds", func(ctx context.Context, req *mcp.CallToolRequest, _ any) (*mcp.CallToolResult, any, error) {
+		withPanicRecovery("list_feeds", func(ctx context.Context, req *mcp.CallToolRequest, _ EmptyArgs) (*mcp.CallToolResult, any, error) {
 			result := appServer.handleListFeeds(ctx)
 			return convertToMCPResult(result), nil, nil
 		}),
@@ -317,8 +326,7 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 		},
 		withPanicRecovery("user_profile", func(ctx context.Context, req *mcp.CallToolRequest, args UserProfileArgs) (*mcp.CallToolResult, any, error) {
 			argsMap := map[string]interface{}{
-				"user_id":    args.UserID,
-				"xsec_token": args.XsecToken,
+				"user_id": args.UserID,
 			}
 			result := appServer.handleUserProfile(ctx, argsMap)
 			return convertToMCPResult(result), nil, nil

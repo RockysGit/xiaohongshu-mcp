@@ -352,7 +352,11 @@ func (s *XiaohongshuService) ListFeeds(ctx context.Context) (*FeedsListResponse,
 	defer page.Close()
 
 	// 创建 Feeds 列表 action
-	action := xiaohongshu.NewFeedsListAction(page)
+	action, err := xiaohongshu.NewFeedsListAction(page)
+	if err != nil {
+		logrus.Errorf("创建 Feeds 列表 action 失败: %v", err)
+		return nil, err
+	}
 
 	// 获取 Feeds 列表
 	feeds, err := action.GetFeedsList(ctx)

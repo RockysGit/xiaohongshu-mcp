@@ -150,11 +150,14 @@ func (s *AppServer) searchFeedsHandler(c *gin.Context) {
 		}
 		keyword = searchReq.Keyword
 		filters = searchReq.Filters
+		logrus.Infof("[searchFeedsHandler] POST request - keyword: %s, filters: %+v", keyword, filters)
 	default:
 		keyword = c.Query("keyword")
+		logrus.Infof("[searchFeedsHandler] GET request - keyword: %s", keyword)
 	}
 
 	if keyword == "" {
+		logrus.Warnf("[searchFeedsHandler] Missing keyword parameter")
 		respondError(c, http.StatusBadRequest, "MISSING_KEYWORD",
 			"缺少关键词参数", "keyword parameter is required")
 		return
@@ -212,14 +215,18 @@ func (s *AppServer) getFeedDetailHandler(c *gin.Context) {
 func (s *AppServer) userProfileHandler(c *gin.Context) {
 	var req UserProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		logrus.Warnf("[userProfileHandler] Invalid request body: %v", err)
 		respondError(c, http.StatusBadRequest, "INVALID_REQUEST",
 			"请求参数错误", err.Error())
 		return
 	}
 
+	logrus.Infof("[userProfileHandler] Request - userID: %s, xsecToken: %s", req.UserID, req.XsecToken)
+
 	// 获取用户信息
 	result, err := s.xiaohongshuService.UserProfile(c.Request.Context(), req.UserID, req.XsecToken)
 	if err != nil {
+		logrus.Errorf("[userProfileHandler] Failed to get user profile: %v", err)
 		respondError(c, http.StatusInternalServerError, "GET_USER_PROFILE_FAILED",
 			"获取用户主页失败", err.Error())
 		return

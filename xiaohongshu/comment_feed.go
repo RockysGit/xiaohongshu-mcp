@@ -29,10 +29,13 @@ func (f *CommentFeedAction) PostComment(ctx context.Context, feedID, xsecToken, 
 	logrus.Infof("打开 feed 详情页: %s", url)
 
 	// 导航到详情页
-	page.MustNavigate(url)
-	page.MustWaitDOMStable()
+	if err := page.Navigate(url); err != nil {
+		return fmt.Errorf("导航到详情页失败: %w", err)
+	}
+	if err := page.WaitDOMStable(time.Second, 0.5); err != nil {
+		return fmt.Errorf("等待页面稳定失败: %w", err)
+	}
 	time.Sleep(1 * time.Second)
-
 	// 检测页面是否可访问
 	if err := checkPageAccessible(page); err != nil {
 		return err
@@ -88,8 +91,12 @@ func (f *CommentFeedAction) ReplyToComment(ctx context.Context, feedID, xsecToke
 	logrus.Infof("打开 feed 详情页进行回复: %s", url)
 
 	// 导航到详情页
-	page.MustNavigate(url)
-	page.MustWaitDOMStable()
+	if err := page.Navigate(url); err != nil {
+		return fmt.Errorf("导航到详情页失败: %w", err)
+	}
+	if err := page.WaitDOMStable(time.Second, 0.5); err != nil {
+		return fmt.Errorf("等待页面稳定失败: %w", err)
+	}
 	time.Sleep(1 * time.Second)
 
 	// 检测页面是否可访问
@@ -108,7 +115,9 @@ func (f *CommentFeedAction) ReplyToComment(ctx context.Context, feedID, xsecToke
 
 	// 滚动到评论位置
 	logrus.Info("滚动到评论位置...")
-	commentEl.MustScrollIntoView()
+	if err := commentEl.ScrollIntoView(); err != nil {
+		return fmt.Errorf("滚动到评论位置失败: %w", err)
+	}
 	time.Sleep(1 * time.Second)
 
 	logrus.Info("准备点击回复按钮")
@@ -181,7 +190,7 @@ func findCommentElement(page *rod.Page, commentID, userID string) (*rod.Element,
 		// === 2. 获取当前评论数量 ===
 		currentCount := getCommentCount(page)
 		logrus.Infof("当前评论数: %d", currentCount)
-		
+
 		if currentCount != lastCommentCount {
 			logrus.Infof("✓ 评论数增加: %d -> %d", lastCommentCount, currentCount)
 			lastCommentCount = currentCount
@@ -202,7 +211,7 @@ func findCommentElement(page *rod.Page, commentID, userID string) (*rod.Element,
 		// === 4. 先滚动到最后一个评论（触发懒加载）===
 		if currentCount > 0 {
 			logrus.Infof("滚动到最后一个评论（共 %d 条）", currentCount)
-			
+
 			// 使用 Go 获取所有评论元素
 			elements, err := page.Timeout(2 * time.Second).Elements(".parent-comment, .comment-item, .comment")
 			if err == nil && len(elements) > 0 {
@@ -231,7 +240,7 @@ func findCommentElement(page *rod.Page, commentID, userID string) (*rod.Element,
 		if commentID != "" {
 			selector := fmt.Sprintf("#comment-%s", commentID)
 			logrus.Infof("尝试通过 commentID 查找: %s", selector)
-			
+
 			// 使用 Timeout 避免长时间等待
 			el, err := page.Timeout(2 * time.Second).Element(selector)
 			if err == nil && el != nil {
@@ -244,7 +253,7 @@ func findCommentElement(page *rod.Page, commentID, userID string) (*rod.Element,
 		// 通过 userID 查找
 		if userID != "" {
 			logrus.Infof("尝试通过 userID 查找: %s", userID)
-			
+
 			// 使用 Timeout 避免长时间等待
 			elements, err := page.Timeout(2 * time.Second).Elements(".comment-item, .comment, .parent-comment")
 			if err == nil && len(elements) > 0 {
@@ -262,7 +271,7 @@ func findCommentElement(page *rod.Page, commentID, userID string) (*rod.Element,
 				logrus.Infof("获取评论元素失败或超时: %v", err)
 			}
 		}
-		
+
 		logrus.Infof("本次尝试未找到目标评论，继续下一轮...")
 
 		// === 7. 等待内容加载 ===

@@ -23,17 +23,23 @@ func (u *UserProfileAction) UserProfile(ctx context.Context, userID, xsecToken s
 	page := u.page.Context(ctx)
 
 	searchURL := makeUserProfileURL(userID, xsecToken)
-	page.MustNavigate(searchURL)
-	page.MustWaitStable()
+	if err := page.Navigate(searchURL); err != nil {
+		return nil, fmt.Errorf("failed to navigate to user profile: %w", err)
+	}
+	if err := page.WaitStable(time.Second); err != nil {
+		return nil, fmt.Errorf("failed to wait for page stable: %w", err)
+	}
 
 	return u.extractUserProfileData(page)
 }
 
 // extractUserProfileData 从页面中提取用户资料数据的通用方法
 func (u *UserProfileAction) extractUserProfileData(page *rod.Page) (*UserProfileResponse, error) {
-	page.MustWait(`() => window.__INITIAL_STATE__ !== undefined`)
+	if err := page.Wait(rod.Eval(`() => window.__INITIAL_STATE__ !== undefined`)); err != nil {
+		return nil, fmt.Errorf("failed to wait for __INITIAL_STATE__: %w", err)
+	}
 
-	userDataResult := page.MustEval(`() => {
+	userDataObj, err := page.Eval(`() => {
 		if (window.__INITIAL_STATE__ &&
 		    window.__INITIAL_STATE__.user &&
 		    window.__INITIAL_STATE__.user.userPageData) {
@@ -44,14 +50,18 @@ func (u *UserProfileAction) extractUserProfileData(page *rod.Page) (*UserProfile
 			}
 		}
 		return "";
-	}`).String()
+	}`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to eval userPageData: %w", err)
+	}
+	userDataResult := userDataObj.Value.String()
 
 	if userDataResult == "" {
 		return nil, fmt.Errorf("user.userPageData.value not found in __INITIAL_STATE__")
 	}
 
 	// 2. 获取用户帖子：window.__INITIAL_STATE__.user.notes.value
-	notesResult := page.MustEval(`() => {
+	notesObj, err := page.Eval(`() => {
 		if (window.__INITIAL_STATE__ &&
 		    window.__INITIAL_STATE__.user &&
 		    window.__INITIAL_STATE__.user.notes) {
@@ -63,7 +73,11 @@ func (u *UserProfileAction) extractUserProfileData(page *rod.Page) (*UserProfile
 			}
 		}
 		return "";
-	}`).String()
+	}`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to eval notes: %w", err)
+	}
+	notesResult := notesObj.Value.String()
 
 	if notesResult == "" {
 		return nil, fmt.Errorf("user.notes.value not found in __INITIAL_STATE__")
@@ -116,7 +130,9 @@ func (u *UserProfileAction) GetMyProfileViaSidebar(ctx context.Context) (*UserPr
 	}
 
 	// 等待页面加载完成并获取 __INITIAL_STATE__
-	page.MustWaitStable()
+	if err := page.WaitStable(time.Second); err != nil {
+		return nil, fmt.Errorf("failed to wait for page stable: %w", err)
+	}
 
 	return u.extractUserProfileData(page)
 }
